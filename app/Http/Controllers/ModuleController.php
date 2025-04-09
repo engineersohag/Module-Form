@@ -4,52 +4,37 @@ namespace App\Http\Controllers;
 use App\Models\Content;
 use App\Models\Module;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class ModuleController extends Controller
 {
-    public function index()
-    {
-        $modules = Module::with('contents')->get();
-        return view('modules.index', compact('modules'));
-    }
+    public function module_store(Request $request){
+        $moduleTitle = $request->moduleTitle;
+        $contentTitle = $request->content ?? [];
+        $img1File = $request->file('img1') ?? [];
+        $img2File = $request->file('img2') ?? [];
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'modules' => 'required|array',
-            'modules.*.title' => 'required|string|max:255',
-            'modules.*.contents' => 'array',
-            'modules.*.contents.*.title' => 'required|string|max:255',
-            'modules.*.contents.*.files' => 'array',
-            'modules.*.contents.*.files.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx|max:2048'
-        ]);
+        $contentIndex = 0;
 
-        foreach ($request->modules as $moduleData) {
-            $module = Module::create(['title' => $moduleData['title']]);
+        foreach($moduleTitle as $modTitle){
+            $module = Module::create([
+                'title' => $modTitle,
+            ]);
 
-            if (!empty($moduleData['contents'])) {
-                foreach ($moduleData['contents'] as $contentData) {
-                    $content = new Content([
-                        'title' => $contentData['title'],
-                        'module_id' => $module->id
-                    ]);
+            while(isset($contentTitle[$contentIndex])){
+                $img1 = isset($img1File[$contentIndex]) ? $img1File[$contentIndex]->store('uploads') : null;
+                $img2 = isset($img2File[$contentIndex]) ? $img2File[$contentIndex]->store('uploads') : null;
 
-                    if (!empty($contentData['files'])) {
-                        $filePaths = [];
-                        foreach ($contentData['files'] as $index => $file) {
-                            $filePaths[] = $file->store('uploads', 'public');
-                        }
+                Content::create([
+                    'module_id' => $module->id,
+                    'title' => $contentTitle[$contentIndex],
+                    'file1' => $img1,
+                    'file2' => $img2,
+                ]);
 
-                        $content->file1 = $filePaths[0] ?? null;
-                        $content->file2 = $filePaths[1] ?? null;
-                    }
-
-                    $content->save();
-                }
+                $contentIndex++;
             }
         }
 
-        return response()->json(['message' => 'Modules and Contents saved successfully!']);
+        return redirect()->back()->with('success', 'Module and Content Added Successfully!');
     }
 }
